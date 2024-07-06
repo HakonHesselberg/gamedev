@@ -36,7 +36,7 @@ public class RegularTileExplosion : MonoBehaviour
             }
 
             var deathCube = (GameObject)(Instantiate(DeathCube, transform.position, Quaternion.identity));
-            if (deathCube.collider.bounds.Contains(Player.transform.position))
+            if (deathCube.GetComponent<Collider>().bounds.Contains(Player.transform.position))
             {
                 Player.GetComponent<PlayerMovement>().Dead();
             }

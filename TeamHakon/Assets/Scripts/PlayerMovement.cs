@@ -44,11 +44,10 @@ namespace Assets.Scripts
 
 
 
-        // Use this for initialization
-        void Start ()
+        private void Start ()
         {
             // Rigidbody variables
-            rigidbody.mass = 10;
+            GetComponent<Rigidbody>().mass = 10;
             baseAngularDrag = 20;
             baseDrag = 10;
 
@@ -64,8 +63,8 @@ namespace Assets.Scripts
             hitDist = 0.0f;
             desiredDirection = (targetPoint - transform.position).normalized;
             friction = 1.0f;
-            rigidbody.angularDrag = baseAngularDrag;
-            rigidbody.drag = baseDrag;
+            GetComponent<Rigidbody>().angularDrag = baseAngularDrag;
+            GetComponent<Rigidbody>().drag = baseDrag;
 
             grassFriction = 1.0f;
             softIceFriction = 0.05f;
@@ -138,7 +137,7 @@ namespace Assets.Scripts
                 }
 
 //                rigidbody.angularDrag = baseAngularDrag * friction;
-                rigidbody.drag = baseDrag*friction;
+                GetComponent<Rigidbody>().drag = baseDrag*friction;
             }
             #endregion
 
@@ -197,7 +196,7 @@ namespace Assets.Scripts
             moveForce = 0.0f;
 
             // This also makes camera slowpan to player from death
-            rigidbody.velocity = Vector3.zero; 
+            GetComponent<Rigidbody>().velocity = Vector3.zero; 
             
             yield return new WaitForSeconds(waitTime);
 //          print("Enable player movement now, 2 seconds later");
@@ -214,7 +213,7 @@ namespace Assets.Scripts
 
         void ApplyMovementForce()
         {
-            rigidbody.AddForce(vectorToTarget.normalized * moveForce * friction);
+            GetComponent<Rigidbody>().AddForce(vectorToTarget.normalized * moveForce * friction);
         }
 
         void UpdateAngle(Vector3 desired)
@@ -234,7 +233,7 @@ namespace Assets.Scripts
 
             if (Math.Abs(angleToPoint) > 5)
             {
-                rigidbody.AddTorque(new Vector3(0, Math.Sign(angleToPoint), 0) * turnForce * (Mathf.Abs(angleToPoint) + 180) / 360);
+                GetComponent<Rigidbody>().AddTorque(new Vector3(0, Math.Sign(angleToPoint), 0) * turnForce * (Mathf.Abs(angleToPoint) + 180) / 360);
             }
         }
 
@@ -250,13 +249,13 @@ namespace Assets.Scripts
                 // Makes every other checkpoint blue
                 foreach (var checkpoint in GameObject.FindGameObjectsWithTag("Checkpoint"))
                 {
-                    checkpoint.renderer.material.color = Color.blue;
+                    checkpoint.GetComponent<Renderer>().material.color = Color.blue;
                 }
 
                 // Make this checkpoint green and set respawnposition to this position
                 respawnPosition = other.transform.position;
                 respawnPosition.y = 1;
-                other.renderer.material.color = Color.green;
+                other.GetComponent<Renderer>().material.color = Color.green;
             }
             if (other.tag == "Goal")
             {
