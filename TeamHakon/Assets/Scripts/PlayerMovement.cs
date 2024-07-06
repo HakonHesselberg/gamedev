@@ -1,226 +1,224 @@
 ﻿using System;
 using System.Collections;
-using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Assets.Scripts
 {
     public class PlayerMovement : MonoBehaviour
     {
+        [FormerlySerializedAs("RightClickParticles")]
+        public GameObject _rightClickParticles;
 
+        [FormerlySerializedAs("OnDeathParticles")]
+        public GameObject _onDeathParticles;
 
-        public GameObject RightClickParticles;
-        public GameObject OnDeathParticles;
+        // Variables for win timer
+        [FormerlySerializedAs("GUITimerSkin")] public GUISkin _guiTimerSkin;
+        private float _timer;
+        private bool _hasWon;
+        private bool _usedShortcut;
+        private float _timeDeathPenalty;
 
-        // Variables for wintimer
-        public GUISkin GUITimerSkin;
-        private float timer;
-        private Boolean hasWon;
-        private Boolean usedShortcut;
-        private float timeDeathPenalty;
-        
-        private float originalTurnForce;
-        private float originalMoveForce;
+        private float _originalTurnForce;
+        private float _originalMoveForce;
 
-        private float turnForce;
-        private float moveForce;
-        private Vector3 facingDirection;
-        private Vector3 targetPoint;
-        private Vector3 vectorToTarget;
-        private float hitDist;
-        private Vector3 desiredDirection;
-        private RaycastHit hit;
+        private float _turnForce;
+        private float _moveForce;
+        private Vector3 _facingDirection;
+        private Vector3 _targetPoint;
+        private Vector3 _vectorToTarget;
+        private float _hitDist;
+        private Vector3 _desiredDirection;
+        private RaycastHit _hit;
 
-        private Vector3 respawnPosition;
-        private float timePlayerIsFrozenWhenRespawning;
+        private Vector3 _respawnPosition;
+        private float _timePlayerIsFrozenWhenRespawning;
 
-        private float friction;
-        private float baseDrag;
-        private float baseAngularDrag;
+        private float _friction;
+        private float _baseDrag;
+        private float _baseAngularDrag;
 
-        private float grassFriction;
-        private float softIceFriction;
-        private float hardIceFriction;
+        private float _grassFriction;
+        private float _softIceFriction;
+        private float _hardIceFriction;
 
+        private Rigidbody _rigidbody;
+        private Camera _mainCamera;
 
+        private void Awake()
+        {
+            _rigidbody = GetComponent<Rigidbody>();
+            _mainCamera = Camera.main;
+        }
 
-        private void Start ()
+        private void Start()
         {
             // Rigidbody variables
-            GetComponent<Rigidbody>().mass = 10;
-            baseAngularDrag = 20;
-            baseDrag = 10;
+            _rigidbody.mass = 10;
+            _baseAngularDrag = 20;
+            _baseDrag = 10;
 
-            originalMoveForce = 500;
-            moveForce = originalMoveForce;
+            _originalMoveForce = 500;
+            _moveForce = _originalMoveForce;
 
-            originalTurnForce = 500;
-            turnForce = originalTurnForce;
-            
-            
-            targetPoint = transform.position;
-            respawnPosition = transform.position;
-            hitDist = 0.0f;
-            desiredDirection = (targetPoint - transform.position).normalized;
-            friction = 1.0f;
-            GetComponent<Rigidbody>().angularDrag = baseAngularDrag;
-            GetComponent<Rigidbody>().drag = baseDrag;
+            _originalTurnForce = 500;
+            _turnForce = _originalTurnForce;
 
-            grassFriction = 1.0f;
-            softIceFriction = 0.05f;
-            hardIceFriction = 0.0f;
-            timePlayerIsFrozenWhenRespawning = 2.0f;
 
-            timer = 0.0f;
-            hasWon = false;
-            usedShortcut = false;
-            timeDeathPenalty = 30.0f;
+            _targetPoint = transform.position;
+            _respawnPosition = transform.position;
+            _hitDist = 0.0f;
+            _desiredDirection = (_targetPoint - transform.position).normalized;
+            _friction = 1.0f;
+            _rigidbody.angularDrag = _baseAngularDrag;
+            _rigidbody.drag = _baseDrag;
+
+            _grassFriction = 1.0f;
+            _softIceFriction = 0.05f;
+            _hardIceFriction = 0.0f;
+            _timePlayerIsFrozenWhenRespawning = 2.0f;
+
+            _timer = 0.0f;
+            _hasWon = false;
+            _usedShortcut = false;
+            _timeDeathPenalty = 30.0f;
         }
 
-        void OnGUI()
+        private void OnGUI()
         {
-            GUI.skin = GUITimerSkin;
-            if (!usedShortcut && !hasWon)
+            GUI.skin = _guiTimerSkin;
+            var labelRect = new Rect(20, 20, 300, 300);
+            if (!_usedShortcut && !_hasWon)
             {
-                GUI.Label(new Rect(20, 20, 300, 300), "Score: " + Math.Round(timer, 2).ToString("F2"));
+                GUI.Label(labelRect, "Score: " + Math.Round(_timer, 2).ToString("F2"));
             }
-            else if (usedShortcut && !hasWon)
+            else if (_usedShortcut && !_hasWon)
             {
-                GUI.Label(new Rect(20, 20, 300, 300), "You used a shortcut, score disabled.");
+                GUI.Label(labelRect, "You used a shortcut, score disabled.");
             }
 
-            else if (usedShortcut && hasWon)
+            else if (_usedShortcut && _hasWon)
             {
-                GUI.Label(new Rect(20, 20, 300, 300), "Try without shortcuts next time :)");
-            } else if (!usedShortcut && hasWon)
+                GUI.Label(labelRect, "Try without shortcuts next time :)");
+            }
+            else if (!_usedShortcut && _hasWon)
             {
-                GUI.Label(new Rect(20, 20, 300, 300), "You won, congratulations! Your score was: " + Math.Round(timer, 2).ToString("F2"));
+                GUI.Label(labelRect,
+                    "You won, congratulations! Your score was: " + Math.Round(_timer, 2).ToString("F2"));
             }
         }
 
-        // Update is called once per frame
-        void FixedUpdate ()
+        private void FixedUpdate()
         {
-            #region As long as player has not won, increase timer
-            if (!hasWon)
-            {
-                timer += Time.deltaTime;
-            }
-            #endregion
+            if (!_hasWon) _timer += Time.deltaTime;
 
-            #region Switch for what we hit
-            if (Physics.Raycast(transform.position, Vector3.down, out hit, 10))
+            if (Physics.Raycast(transform.position, Vector3.down, out _hit, 10))
             {
-                switch (hit.transform.tag)
+                switch (_hit.transform.tag)
                 {
                     case "Grass":
-                        friction = grassFriction;
-
+                        _friction = _grassFriction;
                         break;
 
                     case "Soft Ice":
-                        friction = softIceFriction;
-
+                        _friction = _softIceFriction;
                         break;
 
                     case "Hard Ice":
-                        friction = hardIceFriction;
+                        _friction = _hardIceFriction;
                         break;
 
                     case "Lava":
                         Dead();
                         break;
-                    
+
                     case "Shortcut":
-                        usedShortcut = true;
+                        _usedShortcut = true;
                         break;
                 }
 
-//                rigidbody.angularDrag = baseAngularDrag * friction;
-                GetComponent<Rigidbody>().drag = baseDrag*friction;
+                _rigidbody.drag = _baseDrag * _friction;
             }
-            #endregion
 
-            //TODO This is probably bad
-            else Dead();
-
-            // Set targetpoint when rightclick
-            if (Input.GetMouseButtonDown(0) || Input.GetMouseButton(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButton(1))
+            else
+                Dead();
+            // Set target point when right click
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButton(0) || Input.GetMouseButtonDown(1) ||
+                Input.GetMouseButton(1))
             {
                 var playerPlane = new Plane(Vector3.up, transform.position);
-                var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                var ray = _mainCamera.ScreenPointToRay(Input.mousePosition);
 
-                if (playerPlane.Raycast(ray, out hitDist))
+                if (playerPlane.Raycast(ray, out _hitDist))
                 {
-                    targetPoint = ray.GetPoint(hitDist);
+                    _targetPoint = ray.GetPoint(_hitDist);
                 }
 
                 // Spawns rightClickParticle
-                var rightClickParticle = (GameObject)(Instantiate(RightClickParticles, targetPoint, Quaternion.identity));
+                var rightClickParticle = Instantiate(_rightClickParticles, _targetPoint, Quaternion.identity);
                 Destroy(rightClickParticle.gameObject, 3);
-               
             }
 
-            facingDirection = new Vector3(Mathf.Cos(transform.eulerAngles.y * Mathf.Deg2Rad), 0, -Mathf.Sin(transform.eulerAngles.y * Mathf.Deg2Rad));
-            vectorToTarget = targetPoint - transform.position;
-          
+            _facingDirection = new Vector3(Mathf.Cos(transform.eulerAngles.y * Mathf.Deg2Rad), 0,
+                -Mathf.Sin(transform.eulerAngles.y * Mathf.Deg2Rad));
+            _vectorToTarget = _targetPoint - transform.position;
 
-            if (vectorToTarget.magnitude > 0.2f)
+            if (_vectorToTarget.magnitude > 0.2f)
             {
                 UpdateDirection();
                 ApplyMovementForce();
             }
             else
             {
-                UpdateAngle(desiredDirection);
+                UpdateAngle(_desiredDirection);
             }
         }
 
         public void Dead()
         {
             // Add penalty to timer
-            timer += timeDeathPenalty;
+            _timer += _timeDeathPenalty;
 
-            var deathParticle = (GameObject)(Instantiate(OnDeathParticles, transform.position, Quaternion.identity));
+            var deathParticle = Instantiate(_onDeathParticles, transform.position, Quaternion.identity);
             Destroy(deathParticle.gameObject, 2.0f);
 
-            StartCoroutine(DisablePlayerMovement(timePlayerIsFrozenWhenRespawning));
+            StartCoroutine(DisablePlayerMovement(_timePlayerIsFrozenWhenRespawning));
         }
 
-        IEnumerator DisablePlayerMovement(float waitTime)
+        private IEnumerator DisablePlayerMovement(float waitTime)
         {
-//          print("Disable player movement now");
-            transform.position = respawnPosition;
-            targetPoint = respawnPosition;
-            turnForce = 0.0f;
-            moveForce = 0.0f;
+            transform.position = _respawnPosition;
+            _targetPoint = _respawnPosition;
+            _turnForce = 0.0f;
+            _moveForce = 0.0f;
 
-            // This also makes camera slowpan to player from death
-            GetComponent<Rigidbody>().velocity = Vector3.zero; 
-            
+            // This also makes camera slow pan to player from death
+            _rigidbody.velocity = Vector3.zero;
+
             yield return new WaitForSeconds(waitTime);
 //          print("Enable player movement now, 2 seconds later");
-            targetPoint = respawnPosition; // Makes sure player won't set target before they're able to move
-            turnForce = originalTurnForce;
-            moveForce = originalMoveForce;
-        }
-        
-        void UpdateDirection()
-        {
-            UpdateAngle(vectorToTarget);
-            desiredDirection = vectorToTarget.normalized;
+            _targetPoint = _respawnPosition; // Makes sure player won't set target before they're able to move
+            _turnForce = _originalTurnForce;
+            _moveForce = _originalMoveForce;
         }
 
-        void ApplyMovementForce()
+        private void UpdateDirection()
         {
-            GetComponent<Rigidbody>().AddForce(vectorToTarget.normalized * moveForce * friction);
+            UpdateAngle(_vectorToTarget);
+            _desiredDirection = _vectorToTarget.normalized;
         }
 
-        void UpdateAngle(Vector3 desired)
+        private void ApplyMovementForce()
+        {
+            _rigidbody.AddForce(_vectorToTarget.normalized * (_moveForce * _friction));
+        }
+
+        private void UpdateAngle(Vector3 desired)
         {
             var angleToPoint = Mathf.Rad2Deg *
-                              (Mathf.Atan2(facingDirection.z, facingDirection.x) -
-                               Mathf.Atan2(desired.z, desired.x));
+                               (Mathf.Atan2(_facingDirection.z, _facingDirection.x) -
+                                Mathf.Atan2(desired.z, desired.x));
 
             if (angleToPoint > 180)
             {
@@ -233,16 +231,12 @@ namespace Assets.Scripts
 
             if (Math.Abs(angleToPoint) > 5)
             {
-                GetComponent<Rigidbody>().AddTorque(new Vector3(0, Math.Sign(angleToPoint), 0) * turnForce * (Mathf.Abs(angleToPoint) + 180) / 360);
+                _rigidbody.AddTorque(new Vector3(0, Math.Sign(angleToPoint), 0) *
+                    (_turnForce * (Mathf.Abs(angleToPoint) + 180)) / 360);
             }
         }
 
-        public Vector3 GetFacingDirection()
-        {
-            return facingDirection;
-        }
-
-        void OnTriggerEnter(Collider other)
+        private void OnTriggerEnter(Collider other)
         {
             if (other.tag == "Checkpoint")
             {
@@ -252,14 +246,15 @@ namespace Assets.Scripts
                     checkpoint.GetComponent<Renderer>().material.color = Color.blue;
                 }
 
-                // Make this checkpoint green and set respawnposition to this position
-                respawnPosition = other.transform.position;
-                respawnPosition.y = 1;
+                // Make this checkpoint green and set respawn position to this position
+                _respawnPosition = other.transform.position;
+                _respawnPosition.y = 1;
                 other.GetComponent<Renderer>().material.color = Color.green;
             }
+
             if (other.tag == "Goal")
             {
-                hasWon = true;
+                _hasWon = true;
             }
 
             if (other.tag == "Explosion")
